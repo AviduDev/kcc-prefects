@@ -42,7 +42,6 @@ const data = await client.request(query);
           class="generate-btn"
           data-name={prefect.name}
           data-position={prefect.position}
-          data-date={prefect.certificateDate}
           data-certificate-number={prefect.certificateNumber}
         >
           Generate PDF
@@ -51,50 +50,78 @@ const data = await client.request(query);
 </main>
 
 <script>
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+  import {
+    PDFDocument,
+    StandardFonts,
+    rgb
+  } from "pdf-lib";
 
   const buttons = document.querySelectorAll(".generate-btn");
 
   buttons.forEach((button) => {
     button.addEventListener("click", async () => {
-      const name = button.getAttribute("data-name") || "";
-      const position = button.getAttribute("data-position") || "";
-      const date = button.getAttribute("data-date") || "";
+      const name =
+        button.getAttribute("data-name") || "";
+
+      const position =
+        button.getAttribute("data-position") || "";
+
+      const certificateNumber =
+        button.getAttribute("data-certificate-number") || "";
+
+      // Find the photo from the prefect card
+      const prefectCard = button.closest(".prefect");
+
+      const photoElement =
+        prefectCard?.querySelector("img");
+
+      const photoUrl =
+        photoElement?.getAttribute("src");
 
       try {
-        // Load certificate template
-        const response = await fetch("/certificate-template.pdf");
-        const templateBytes = await response.arrayBuffer();
+        // --------------------------------
+        // LOAD CERTIFICATE TEMPLATE
+        // --------------------------------
 
-        const pdfDoc = await PDFDocument.load(templateBytes);
+        const response = await fetch(
+          "/certificate-template.pdf"
+        );
 
-        const page = pdfDoc.getPages()[0];
+        const templateBytes =
+          await response.arrayBuffer();
 
-        // Load font
-        const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+        const pdfDoc =
+          await PDFDocument.load(templateBytes);
 
-        /*
-         * A4 page:
-         * width  = 595.28 points
-         * height = 841.89 points
-         *
-         * PDF coordinates start from the
-         * bottom-left corner.
-         */
+        const page =
+          pdfDoc.getPages()[0];
 
-        const pageWidth = page.getWidth();
-        const pageHeight = page.getHeight();
+        // --------------------------------
+        // FONT
+        // --------------------------------
 
-        // -------------------------
+        const font =
+          await pdfDoc.embedFont(
+            StandardFonts.Helvetica
+          );
+
+        const pageWidth =
+          page.getWidth();
+
+        const pageHeight =
+          page.getHeight();
+
+        // --------------------------------
         // NAME
-        // -------------------------
+        // --------------------------------
 
         const nameSize = 28;
 
-        const nameWidth = font.widthOfTextAtSize(
-          name,
-          nameSize
-        );
+        const nameWidth =
+          font.widthOfTextAtSize(
+            name,
+            nameSize
+          );
 
         page.drawText(name, {
           x: (pageWidth - nameWidth) / 2,
@@ -104,19 +131,20 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
           color: rgb(0, 0, 0),
         });
 
-        // -------------------------
+        // --------------------------------
         // POSITION
-        // -------------------------
+        // --------------------------------
 
-        const positionText = position
-          .replaceAll("_", " ");
+        const positionText =
+          position.replaceAll("_", " ");
 
         const positionSize = 16;
 
-        const positionWidth = font.widthOfTextAtSize(
-          positionText,
-          positionSize
-        );
+        const positionWidth =
+          font.widthOfTextAtSize(
+            positionText,
+            positionSize
+          );
 
         page.drawText(positionText, {
           x: (pageWidth - positionWidth) / 2,
@@ -126,35 +154,95 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
           color: rgb(0, 0, 0),
         });
 
-        // -------------------------
+        // --------------------------------
         // DATE
-        // -------------------------
+        // --------------------------------
 
-        page.drawText(date, {
-          x: 72,
-          y: 144,
+        page.drawText(certificateNumber, {
+          x: 435,
+          y: 50,
           size: 12,
           font,
           color: rgb(0, 0, 0),
         });
 
-        // -------------------------
-        // SAVE
-        // -------------------------
 
-        const pdfBytes = await pdfDoc.save();
+        // --------------------------------
+        // PHOTO
+        // --------------------------------
 
-        const blob = new Blob(
-          [pdfBytes],
-          { type: "application/pdf" }
-        );
+        if (photoUrl) {
+          const photoResponse =
+            await fetch(photoUrl);
 
-        const url = URL.createObjectURL(blob);
+          const photoBytes =
+            await photoResponse.arrayBuffer();
 
-        const link = document.createElement("a");
+          let photo;
+
+          const contentType =
+            photoResponse.headers.get(
+              "content-type"
+            );
+
+          if (
+            contentType?.includes("png")
+          ) {
+            photo =
+              await pdfDoc.embedPng(
+                photoBytes
+              );
+          } else {
+            photo =
+              await pdfDoc.embedJpg(
+                photoBytes
+              );
+          }
+
+          // Temporary photo size
+          const photoWidth = 120;
+          const photoHeight = 150;
+
+          // Temporary centered position
+          const photoX =
+            (pageWidth - photoWidth) / 2;
+
+          const photoY =
+            pageHeight / 2 - 220;
+
+          page.drawImage(photo, {
+            x: photoX,
+            y: photoY,
+            width: photoWidth,
+            height: photoHeight,
+          });
+        }
+
+        // --------------------------------
+        // SAVE PDF
+        // --------------------------------
+
+        const pdfBytes =
+          await pdfDoc.save();
+
+        const blob =
+          new Blob(
+            [pdfBytes],
+            {
+              type: "application/pdf"
+            }
+          );
+
+        const url =
+          URL.createObjectURL(blob);
+
+        const link =
+          document.createElement("a");
 
         link.href = url;
-        link.download = `${name}-certificate.pdf`;
+
+        link.download =
+          `${name}-certificate.pdf`;
 
         link.click();
 
@@ -162,8 +250,11 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 
       } catch (error) {
         console.error(error);
-        alert("Failed to generate certificate.");
+
+        alert(
+          "Failed to generate certificate."
+        );
       }
     });
-  });    
+  });
 </script>

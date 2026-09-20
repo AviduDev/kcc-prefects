@@ -17,6 +17,9 @@
 		"@astrojs/rss": "4.0.14",
 		"@astrojs/sitemap": "3.6.1",
 		"astro": "5.16.9",
+		"graphql": "^16.14.2",
+		"graphql-request": "^7.4.0",
+		"pdf-lib": "^1.17.1",
 		"typescript": "5.9.3"
 	},
 	"devDependencies": {

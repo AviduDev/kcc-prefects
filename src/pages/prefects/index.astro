@@ -1,0 +1,169 @@
+---
+import Header from '../../components/Header.astro';
+
+import { GraphQLClient } from 'graphql-request';
+const endpoint = import.meta.env.HYGRAPH_ENDPOINT;
+
+const client  = new GraphQLClient(endpoint);
+
+const query = `
+query {
+  prefects {
+    name
+    position
+    date
+    certificateNumber
+    photo {
+      url
+    }
+  }
+}`;
+
+const data = await client.request(query);
+---
+
+<main>
+		<Header />
+
+        <h1>List of Prefects</h1>
+
+        {data.prefects.map((prefect) => (
+        <div>
+            <h2>{prefect.name}</h2>
+            <p><b>Position</b>: {prefect.position}</p>
+            <p><b>Joined Date</b>: {prefect.date}</p>
+            <p><b>Certificate Number</b>: {prefect.certificateNumber}</p>
+            {prefect.photo && (
+                <img src={prefect.photo.url} alt={prefect.name} width="150">
+            )}
+        </div>
+
+                <button
+          class="generate-btn"
+          data-name={prefect.name}
+          data-position={prefect.position}
+          data-date={prefect.certificateDate}
+          data-certificate-number={prefect.certificateNumber}
+        >
+          Generate PDF
+        </button>
+        ))}
+</main>
+
+<script>
+import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+
+  const buttons = document.querySelectorAll(".generate-btn");
+
+  buttons.forEach((button) => {
+    button.addEventListener("click", async () => {
+      const name = button.getAttribute("data-name") || "";
+      const position = button.getAttribute("data-position") || "";
+      const date = button.getAttribute("data-date") || "";
+
+      try {
+        // Load certificate template
+        const response = await fetch("/certificate-template.pdf");
+        const templateBytes = await response.arrayBuffer();
+
+        const pdfDoc = await PDFDocument.load(templateBytes);
+
+        const page = pdfDoc.getPages()[0];
+
+        // Load font
+        const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+        /*
+         * A4 page:
+         * width  = 595.28 points
+         * height = 841.89 points
+         *
+         * PDF coordinates start from the
+         * bottom-left corner.
+         */
+
+        const pageWidth = page.getWidth();
+        const pageHeight = page.getHeight();
+
+        // -------------------------
+        // NAME
+        // -------------------------
+
+        const nameSize = 28;
+
+        const nameWidth = font.widthOfTextAtSize(
+          name,
+          nameSize
+        );
+
+        page.drawText(name, {
+          x: (pageWidth - nameWidth) / 2,
+          y: pageHeight / 2,
+          size: nameSize,
+          font,
+          color: rgb(0, 0, 0),
+        });
+
+        // -------------------------
+        // POSITION
+        // -------------------------
+
+        const positionText = position
+          .replaceAll("_", " ");
+
+        const positionSize = 16;
+
+        const positionWidth = font.widthOfTextAtSize(
+          positionText,
+          positionSize
+        );
+
+        page.drawText(positionText, {
+          x: (pageWidth - positionWidth) / 2,
+          y: pageHeight / 2 - 40,
+          size: positionSize,
+          font,
+          color: rgb(0, 0, 0),
+        });
+
+        // -------------------------
+        // DATE
+        // -------------------------
+
+        page.drawText(date, {
+          x: 72,
+          y: 144,
+          size: 12,
+          font,
+          color: rgb(0, 0, 0),
+        });
+
+        // -------------------------
+        // SAVE
+        // -------------------------
+
+        const pdfBytes = await pdfDoc.save();
+
+        const blob = new Blob(
+          [pdfBytes],
+          { type: "application/pdf" }
+        );
+
+        const url = URL.createObjectURL(blob);
+
+        const link = document.createElement("a");
+
+        link.href = url;
+        link.download = `${name}-certificate.pdf`;
+
+        link.click();
+
+        URL.revokeObjectURL(url);
+
+      } catch (error) {
+        console.error(error);
+        alert("Failed to generate certificate.");
+      }
+    });
+  });    
+</script>
